@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+cleanup() {
+	touch Makefile{,.process}
+	rm -f Makefile{,.process}
+}
+
+die() {
+	echo "Error! $*"
+	exit 1
+}
+
+BEGIN=$(awk '$0=="!TEMPLATE"{exit} printing{print} $0=="!BEGIN"{printing=1}' Makefile.fragment)
+TEMPLATE=$(awk '$0=="!END"{exit} printing{print} $0=="!TEMPLATE"{printing=1}' Makefile.fragment)
+END=$(awk 'printing{print} $0=="!END"{printing=1}' Makefile.fragment)
+ALLOUT=""
+GLOB_CPPFLAGS=""
+
+projdef() {
+	# shellcheck disable=SC1090
+	. "projects/$1"
+	ALLOUT+="out/${OUT} "
+	echo "$TEMPLATE" |
+		sed "s\`!Argument1!\`$1\`g" |
+		sed "s\`!Argument2!\`${OUT}\`g" |
+		sed "s\`!Argument3!\`${LDFLAGS}\`g" |
+		sed "s\`!Flags!\`${CPPFLAGS} ${GLOB_CPPFLAGS}\`g" |
+		sed "s\`!Deps!\`${DEPS}\`g" >> Makefile.process ||
+		die "Failed to make template."
+}
+
+clean=false
+all=false
+run=false
+debug=false
+
+# Parse arguments
+while [ ! "$1" = "" ]; do
+	case $1 in
+		--car)
+			clean=true
+			all=true
+			run=true
+			;;
+		--clean)
+			clean=true
+			;;
+		--all)
+			all=true
+			;;
+		--run)
+			all=true
+			run=true
+			;;
+		--debug)
+			debug=true
+			;;
+	esac
+	shift
+done
+
+{
+	echo "#define PXVER \"$(cat PXVERSION)\""
+	echo -n '#define PXLICENSE "'
+	LICENSE_STR=""
+	while read -re LINE; do
+		# shellcheck disable=SC2001
+		# * note: i tried it but it just straight up doesn't work
+		LINE="$(sed 's/"/\\"/g' <<< "$LINE")"
+		LICENSE_STR+="$LINE\n"
+	done < <(cat LICENSE - <<< $"\n")
+
+	# shellcheck disable=SC2031
+	# * shellcheck is WRONG
+	while [ "${LICENSE_STR:$((${#LICENSE_STR}-2))}" = '\n' ]; do
+		LICENSE_STR="${LICENSE_STR::$((${#LICENSE_STR}-2))}"
+	done
+	echo -n "$LICENSE_STR"
+	echo \"
+} > include/config.hpp
+
+if [ $debug = true ]; then
+	GLOB_CPPFLAGS+=" -g"
+	echo "#define PXFLAGDEBUG" >> include/config.hpp
+fi
+
+trap cleanup EXIT
+
+# Make sure Makefile exists and is empty
+echo > Makefile
+echo > Makefile.process
+
+
+for i in projects/*; do
+	projdef "$(cut -d/ -f2 <<< "$i")"
+done
+
+{
+	echo "OUT=${ALLOUT}"
+
+	# Continue on...
+	echo "$BEGIN"
+	cat Makefile.process
+	echo "$END"
+} >> Makefile
+
+echo "Finished configuration! Type 'make' to begin building"
+
+rm Makefile.process
+trap true EXIT
+
+MAKEFLAGS="-j$(nproc)"
+export MAKEFLAGS
+
+[ $clean = true ] && make clean
+[ $all = true ] && make all
+[ $run = true ] && make run
+
+true

@@ -1,0 +1,4 @@
+OUT="pam_pxpam.so"
+LDFLAGS="-Lout/parallax -shared -lparallax -lpam"
+CPPFLAGS="-fPIC"
+DEPS="out/parallax/libparallax.so"

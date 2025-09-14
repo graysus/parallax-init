@@ -1,0 +1,4 @@
+OUT="parallax/libparallax.so"
+LDFLAGS="-shared"
+CPPFLAGS="-fPIC"
+DEPS=""

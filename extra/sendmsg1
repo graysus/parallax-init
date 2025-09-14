@@ -1,0 +1,3 @@
+#!/bin/sh
+
+echo -ne "$@"'\0' | bsdnc -U /run/parallax-pid1.sock

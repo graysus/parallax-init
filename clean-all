@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+[ -f Makefile ] && rm -f Makefile
+[ -f include/config.hpp ] && rm -f include/config.hpp
+[ -d out ] && rm -rf out
+[ -d obj ] && rm -rf obj

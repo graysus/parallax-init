@@ -1,0 +1,4 @@
+OUT="parallax/PxLogger"
+LDFLAGS="-Lout/parallax -lparallax -lpxipcserv -lpxinternal"
+CPPFLAGS=""
+DEPS="out/parallax/libparallax.so out/parallax/libpxipcserv.so out/parallax/libpxinternal.so"

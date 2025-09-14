@@ -1,0 +1,4 @@
+OUT="init"
+LDFLAGS=""
+CPPFLAGS=""
+DEPS=""

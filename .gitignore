@@ -1,0 +1,9 @@
+a.out
+imgbuild
+Makefile
+obj
+out
+test/*.out
+testmount
+task_run
+include/config.hpp

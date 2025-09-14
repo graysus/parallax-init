@@ -1,0 +1,4 @@
+OUT="parallax/libpxinternal.so"
+LDFLAGS="-shared"
+CPPFLAGS="-fPIC"
+DEPS=""

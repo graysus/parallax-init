@@ -1,0 +1,4 @@
+OUT="PxTest"
+LDFLAGS="-Lout/parallax -lparallax -lpxipcserv"
+CPPFLAGS=""
+DEPS="out/parallax/libparallax.so out/parallax/libpxipcserv.so"

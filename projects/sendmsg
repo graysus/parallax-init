@@ -1,0 +1,4 @@
+OUT="sendmsg"
+LDFLAGS="-Lout/parallax -lparallax"
+CPPFLAGS=""
+DEPS="out/parallax/libparallax.so"

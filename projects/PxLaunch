@@ -1,0 +1,4 @@
+OUT="parallax/PxLaunch"
+LDFLAGS="-Lout/parallax -lparallax"
+CPPFLAGS=""
+DEPS="out/parallax/libparallax.so"

@@ -1,0 +1,4 @@
+OUT="parallax/libpxipcserv.so"
+LDFLAGS="-shared -Lout/parallax -lparallax"
+CPPFLAGS="-fPIC"
+DEPS="out/parallax/libparallax.so"

@@ -1,0 +1,5 @@
+
+ReportVariable=EscapeLF;EscapeSlash;EscapeDollar
+EscapeLF=Line Feed \n escape
+EscapeSlash=Backslash \\ escape
+EscapeDollar=Dollar \$ escape

@@ -1,0 +1,68 @@
+!BEGIN
+LDLIBS = -lstdc++ -lmount
+CPPFLAGS += -Iinclude/ -Wpedantic -Werror -Wunused -Wunused-result
+OBJDIR = obj
+SRCDIR = src
+CPPFILES = $(wildcard $(SRCDIR)/*.cpp)
+OBJ = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(CPPFILES))
+MOUNT_TESTRUN = mountpoint ./testmount || guestmount -a tester.qcow2 -m /dev/sda1 --rw ./testmount
+UNMOUNT_TESTRUN = mountpoint ./testmount/ && guestunmount ./testmount/
+
+# Options
+DESTDIR ?= /
+KERNEL_APPEND ?= console=ttyS0,115200
+QEMU_APPEND ?= -nographic
+
+all: ${OUT}  # OUT is defined by configure
+
+out:
+	mkdir --parents out
+	mkdir --parents out/parallax
+
+obj/%/:
+	mkdir --parents $@
+
+!TEMPLATE
+
+# Everything in !XX! is defined by configure
+
+OBJ_!Argument1!=$(patsubst $(SRCDIR)/!Argument1!/%.cpp,$(OBJDIR)/!Argument1!/%.o,$(wildcard $(SRCDIR)/!Argument1!/*.cpp))
+
+$(OBJDIR)/!Argument1!/%.o: $(SRCDIR)/!Argument1!/%.cpp obj/!Argument1!/
+	$(CXX) $(CFLAGS) $(CPPFLAGS) !Flags! -c -o $@ $<
+
+out/!Argument2!: out !Deps! $(OBJ_!Argument1!)
+	$(CXX) $(CFLAGS) $(CPPFLAGS) !Argument3! -o out/!Argument2! $(OBJ_!Argument1!) $(LDLIBS)
+	[ -f task_run/install ] && rm task_run/install || true
+	
+!END
+install:
+	mkdir --parents $(DESTDIR)/{usr/lib{,/parallax,/security},usr/bin,sbin}
+	install -Dm755 -o0 out/parallax/PxInit $(DESTDIR)/usr/lib/parallax/PxInit
+	install -Dm4755 -o0 out/parallax/PxDaemon $(DESTDIR)/usr/lib/parallax/PxDaemon
+	install -Dm755 -o0 out/parallax/PxLaunch $(DESTDIR)/usr/lib/parallax/PxLaunch
+	install -Dm755 -o0 out/parallax/PxLogger $(DESTDIR)/usr/lib/parallax/PxLogger
+	install -Dm755 -o0 out/parallax/pxfsck $(DESTDIR)/usr/lib/parallax/pxfsck
+	install -Dm755 -o0 out/parallax/libparallax.so $(DESTDIR)/usr/lib/parallax/libparallax.so
+	install -Dm755 -o0 out/parallax/libpxinternal.so $(DESTDIR)/usr/lib/parallax/libpxinternal.so
+	install -Dm755 -o0 out/parallax/libpxipcserv.so $(DESTDIR)/usr/lib/parallax/libpxipcserv.so
+	install -Dm744 -o0 out/pam_pxpam.so $(DESTDIR)/usr/lib/security/pam_pxpam.so
+	install -m755 -o0 out/init $(DESTDIR)/sbin/init
+	install -m755 -o0 out/sendmsg $(DESTDIR)/sbin/sendmsg
+	install -m755 -o0 out/pxctl $(DESTDIR)/sbin/pxctl
+	install -m755 -o0 out/pxread $(DESTDIR)/sbin/pxread
+	ln -sf parallax/libparallax.so ${DESTDIR}/usr/lib/libparallax.so
+	ln -sf parallax/libpxinternal.so ${DESTDIR}/usr/lib/libpxinternal.so
+	ln -sf parallax/libpxipcserv.so ${DESTDIR}/usr/lib/libpxipcserv.so
+	ln -sf sendmsg ${DESTDIR}/sbin/sendmsgin
+	ln -sf sendmsg ${DESTDIR}/sbin/sendmsgu
+	ln -sf init ${DESTDIR}/sbin/poweroff
+	ln -sf init ${DESTDIR}/sbin/reboot
+	ln -sf init ${DESTDIR}/sbin/halt
+
+check:
+	out/PxTest
+
+clean:
+	[ -d out ] && rm -r out || true
+	[ -d obj ] && rm -r obj || true

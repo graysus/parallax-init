@@ -1,0 +1,4 @@
+OUT="pxctl"
+LDFLAGS="-Lout/parallax -lparallax -lpxinternal"
+CPPFLAGS=""
+DEPS="out/parallax/libparallax.so out/parallax/libpxinternal.so"
