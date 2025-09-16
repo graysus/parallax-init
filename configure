@@ -70,8 +70,6 @@ done
 		LICENSE_STR+="$LINE\n"
 	done < <(cat LICENSE - <<< $"\n")
 
-	# shellcheck disable=SC2031
-	# * shellcheck is WRONG
 	while [ "${LICENSE_STR:$((${#LICENSE_STR}-2))}" = '\n' ]; do
 		LICENSE_STR="${LICENSE_STR::$((${#LICENSE_STR}-2))}"
 	done

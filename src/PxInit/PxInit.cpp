@@ -7,8 +7,10 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
-#include <iostream>
+#include <filesystem>
+#include <memory>
 #include <string>
 #include <sys/types.h>
 #include <unistd.h>
@@ -17,78 +19,51 @@
 #include <sys/stat.h>
 #include <PxProcess.hpp>
 #include <config.hpp>
+#include <sys/wait.h>
+#include <PxShutdown.hpp>
 
 pid_t daemon_pid;
 PxIPC::Server<char> serv;
 PxJob::JobServer jobs;
 
-PxResult::Result<void> sys_reboot(int command) {
-	if (syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, command, NULL) != 0) {
-		return PxResult::Result<void>("sys_reboot / syscall(SYS_reboot, ...)", errno);
+class CollectorJob : public PxJob::Job {
+public:
+	CollectorJob() {}
+	void onerror(PxResult::Result<void> err) override {
+		PxJob::Job::onerror(err);
+		failed = false;
+		finished = false;
+		finishing = false;
 	}
-	return PxResult::Null;
-}
+	PxResult::Result<void> tick() override {
+		for (auto &i : std::filesystem::directory_iterator("/proc")) {
+			pid_t pid = std::atoi(i.path().filename().c_str());
 
-bool shuttingDown = false;
+			// discard if invalid
+			if (pid == 0) continue;
 
-void shutdown(int poweropt) {
-	if (shuttingDown) return;
-	shuttingDown = true;
-	kill(daemon_pid, SIGKILL);
-	PxMount::Table table;
-	table.LoadFromFile("/etc/mtab");
-	auto list_res = table.List();
-	sync();
-	if (list_res.eno) {
-		errno = list_res.eno;
-		perror(("warn: cannot list filesystems: "+list_res.funcName).c_str());
-		perror("Data loss is possible!");
-		usleep(6000000);
-		std::cout << "Syncing disks...\n";
-		sync();
-		usleep(1000000);
-	} else {
-		std::cout << "Remounting all filesystems as read-only...\n";
-		auto list = list_res.assert();
-		for (auto& i : list) {
-			if (i.target == "/proc" && i.type == "proc") continue;
-			auto status = PxMount::Mount("", i.target, "", "remount,ro");
-			if (status.eno) {
-				errno = status.eno;
-				perror(("warn: cannot remount "+i.target+": "+status.funcName).c_str());
+			auto resstat = PxState::fget("/proc/"+std::to_string(pid)+"/stat");
+			
+			// stopped between listing and now
+			if (resstat.eno == ENOENT) continue;
+			PXASSERTM(resstat, "CollectorJob::tick");
+
+			auto stat = PxFunction::split(resstat.assert());
+			if (stat.size() < 4) return PxResult::FResult("CollectorJob::tick (invalid value of /proc/.../stat)", EINVAL);
+			auto rstat = stat[2];
+
+			if (stat[3] != "1") continue;
+			if (rstat == "Z") {
+				// collect zombie
+				int wstatus;
+				waitpid(pid, &wstatus, 0);
+				PxLog::log.info("zombied process "+std::to_string(pid)+" exited with WSTATUS = "+std::to_string(wstatus));
 			}
 		}
-		std::cout << "Syncing disks...\n";
-		sync();
-		std::cout << "waiting a little bit...\n";
-		usleep(1000000);
-		std::cout << "Unmounting all filesystems except root...\n";
-		for (auto& i : list) {
-			if (i.target == "/") continue;
-			if (i.target == "/proc" && i.type == "proc") continue; // LIAR!
-			auto status = PxMount::Mount("", i.target, "", "remount,ro");
-			if (status.eno) {
-				errno = status.eno;
-				perror(("warn: cannot unmount "+i.target+": "+status.funcName).c_str());
-			}
-		}
+		return PxResult::Null;
 	}
-	PxResult::Result<void> res;
-	switch (poweropt) {
-		case 0:
-			res = sys_reboot(LINUX_REBOOT_CMD_POWER_OFF);
-			if (res.eno) { errno = res.eno; perror(res.funcName.c_str()); }
-			break;
-		case 1:
-			res = sys_reboot(LINUX_REBOOT_CMD_RESTART);
-			if (res.eno) { errno = res.eno; perror(res.funcName.c_str()); }
-			break;
-	}
-	res = sys_reboot(LINUX_REBOOT_CMD_HALT);
-	res.assert("shutdown");
-	std::cout << "An error occurred trying to power the system off.\nIt is now safe to turn off your computer.";
-	while(1) usleep(1000000);
-}
+};
+
 
 void CheckCommand(int argc, const char **argv, std::string target, std::string command) {
 	std::string path = argc > 1 ? argv[1] : "";
@@ -117,6 +92,10 @@ void cad(int sig) {
 }
 
 int main(int argc, const char *argv[]) {
+#ifdef PXFLAGDEBUG
+	signal(SIGINT, SIG_IGN);
+	kill(getpid(), SIGINT);
+#endif
 	if (getpid() != 1) {
 		CheckCommand(argc, argv, "poweroff", "target poweroff");
 		CheckCommand(argc, argv, "reboot", "target reboot");
@@ -149,6 +128,7 @@ int main(int argc, const char *argv[]) {
 	serv.on_command = OnCommand;
 
 	jobs.AddJob(std::make_shared<PxIPC::ServerJob<char>>(&serv));
+	jobs.AddJob(std::make_shared<CollectorJob>());
 
 	if (chown("/run/parallax-pid1.sock", 0, 0) < 0) {
 		perror("parallax-pid1 / chown");
@@ -158,17 +138,19 @@ int main(int argc, const char *argv[]) {
 		perror("parallax-pid1 / chmod");
 		return 1;
 	}
+	
+	PxLog::log.suppress(false);
 
 	sys_reboot(LINUX_REBOOT_CMD_CAD_OFF);
 
 	// Start the IPC server
 
 	pid_t f = fork();
-	if (f < 0) PxResult::Result<void>("main / fork", errno).assert();
+	if (f < 0) PxResult::FResult("main / fork", errno).assert();
 	if (f) {
 		signal(SIGINT, cad);
 		while (true) {
-			usleep(1000);
+			usleep(5000);
 			jobs.tick();
 		}
 	} else {
