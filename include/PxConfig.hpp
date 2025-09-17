@@ -8,12 +8,13 @@
 #ifndef PXCONF
 #define PXCONF
 namespace PxConfig {
-	std::vector<std::string> Escape(std::string baseString, std::string argument = "", int msplit = 9);
+	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit, std::string sep);
 	class conf {
 	private:
 		std::map<std::string, std::vector<std::string>> vec_properties;
 	public:
 		std::string def_arg;
+		std::string separator = ":";
 		int maxargs = 9;
 
 		void RawAdd(std::string key, std::string value) {
@@ -21,8 +22,10 @@ namespace PxConfig {
 		}
 
 		void ReadValue(const std::string &key, std::vector<std::string> &output, const std::string &argument = "") {
+			auto argp = argument.empty() ? &def_arg : &argument;
+
 			for (auto &def : vec_properties[key]) {
-				auto escaped = Escape(def, def_arg, maxargs-1);
+				auto escaped = Escape(def, *argp, maxargs-1, separator);
 				for (auto &i : escaped) {
 					output.push_back(i);
 				}

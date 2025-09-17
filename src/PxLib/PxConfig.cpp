@@ -2,10 +2,10 @@
 #include <PxConfig.hpp>
 
 namespace PxConfig {
-	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit) {
+	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit, std::string sep) {
 		std::string outputString;
 		std::vector<std::string> outputVector;
-		auto larguments = PxFunction::split(argument, ":", msplit);
+		auto larguments = PxFunction::split(argument, sep, msplit);
 		bool escaping = false;
 		bool varEscaping = false;
 		for (size_t i = 0; i < baseString.length(); i++) {
@@ -30,7 +30,12 @@ namespace PxConfig {
 				continue;
 			} else if (varEscaping) {
 				if ('1' <= c && c <= '9') {
-					outputString += larguments[c-'1'];
+					if (larguments.size() > c-'1') {
+						outputString += larguments[c-'1'];
+					} else {
+						outputString += "$";
+						outputString += c;
+					}
 				} else if (c == '@') {
 					outputString += argument;
 				}

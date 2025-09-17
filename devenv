@@ -4,3 +4,11 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:./out/parallax"
 export PATH="$PATH:./out:./out/parallax"
 MAKEFLAGS="-j$(nproc)"
 export MAKEFLAGS
+
+runtestprog() {
+	make -C test "$1" && test/"$1.out"
+}
+
+debugtestprog() {
+	make -C test "$1" && gdb test/"$1.out"
+}
