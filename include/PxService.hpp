@@ -18,7 +18,6 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
-#include <map>
 #include <vector>
 
 #include <unistd.h>
@@ -32,8 +31,6 @@ namespace PxService {
 	public:
 		std::string name;
 		ServiceManager *mgr;
-		std::map<std::string, std::string> properties;
-		std::map<std::string, std::vector<std::string>> vec_properties;
 		// Deps refers to both dynamic and static dependencies.
 		// For a list of static dependencies, use vec_properties
 		std::vector<std::string> deps;
@@ -45,6 +42,7 @@ namespace PxService {
 		bool failLocked = false;
 		int logTask;
 		int wk_pid;
+		PxConfig::conf conf;
 
 		bool isUser = false;
 		uid_t uid = 0;
@@ -57,11 +55,8 @@ namespace PxService {
 			this->uid = uid;
 		}
 		std::string getProperty(std::string name, std::string def = "") {
-			if (properties.count(name)) {
-				return properties[name];
-			} else {
-				return def;
-			}
+			auto val = conf.QuickRead(name);
+			return val.empty() ? def : val;
 		}
 		ServiceOverrideState isRunning() {
 			switch (status) {
@@ -140,9 +135,7 @@ namespace PxService {
 			status = Waiting;
 			// Add dependencies
 			deps.erase(deps.begin(), deps.end());
-			for (auto &i : vec_properties["Depend"]) {
-				deps.push_back(i);
-			}
+			conf.ReadValue("Depend", deps);
 
 
 			// Start dependencies
@@ -416,8 +409,7 @@ namespace PxService {
 			}
 			auto res = PxConfig::ReadConfig(filename, parts.size()==2 ? parts[1] : "");
 			PXASSERTM(res, "PxService::Service::reload");
-			properties = res.assert().properties;
-			vec_properties = res.assert().vec_properties;
+			conf = res.assert();
 			return PxResult::Null;
 		}
 	};

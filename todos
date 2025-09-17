@@ -1,6 +1,4 @@
 Todos:
 PxConfig::WritableConfig
 Dependencies for targets
-Read / mount from fstab
-Kill all processes before rebooting
 Force services to stop when PxLaunch exits.

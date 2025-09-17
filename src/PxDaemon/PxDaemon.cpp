@@ -17,6 +17,7 @@
 #include <config.hpp>
 #include <PxArg.hpp>
 #include <PxEnv.hpp>
+#include <vector>
 
 enum Cmd {
 	Start, Stop, FinishStart, FinishStop, ServDepend, ServRemoveDepend, ServFinish, ServFail, ServFinishFail, CascadeStop, Target, SpawnSession, Reference, Export, Query
@@ -187,8 +188,13 @@ std::string GetOSName() {
 		return "Linux";
 	}
 	auto os = os_res.assert();
-	auto ansicolors = PxFunction::trim(PxFunction::join(os.vec_properties["ANSI_COLOR"], ";"), "\"'");
-	return "\x1b["+ansicolors+"m"+PxFunction::trim(os.properties["PRETTY_NAME"], "\"'")+"\x1b[0m";
+
+	std::vector<std::string> ansicolors_read;
+
+	os.ReadValue("ANSI_COLOR", ansicolors_read);
+
+	auto ansicolors = PxFunction::trim(PxFunction::join(ansicolors_read, ";"), "\"'");
+	return "\x1b["+ansicolors+"m"+PxFunction::trim(os.QuickRead("PRETTY_NAME"), "\"'")+"\x1b[0m";
 }
 void InitLog() {
 	PxFunction::wrap("seteuid", seteuid(0)).assert("InitLog");

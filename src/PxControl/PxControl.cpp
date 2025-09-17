@@ -90,7 +90,9 @@ PxResult::Result<void> ensrv(std::string svname, bool enabled) {
 		exit(1);
 	} else if (res.eno) return res.merge("CmdEnable");
 	bool done = false;
-	for (auto &i : sv.vec_properties["Target"]) {
+	std::vector<std::string> targets;
+	sv.conf.ReadValue("Target", targets);
+	for (auto &i : targets) {
 		done = true;
 		PxService::Target tgt(i, NULL, isUser, uid, false);
 		int err;

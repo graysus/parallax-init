@@ -12,9 +12,9 @@ std::string PxTestMain(int argc, const char *argv[]) {
 
 	std::string report;
 	
-	for (auto &i : config.vec_properties["ReportVariable"]) {
+	for (auto &i : config.QuickReadVec("ReportVariable")) {
 		report+="VAR_"+i+";";
-		for (auto &m : config.vec_properties[i]) {
+		for (auto &m : config.QuickReadVec(i)) {
 			report+=m+";";
 		}
 	}

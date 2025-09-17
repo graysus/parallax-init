@@ -60,13 +60,13 @@ namespace PxConfig {
 				return PxResult::Result<void>("PxConfig::ReadConfig (An argument is required, but was not specified.)", EINVAL);
 			}
 		}
-			
-		c->properties[key] = value;
-		c->vec_properties[key].push_back(value);
+		
+		c->RawAdd(key, value);
 		return PxResult::Null;
 	}
 	PxResult::Result<conf> ReadConfig(std::string filename, std::string argument) {
 		conf c;
+		c.def_arg = argument;
 		PxResult::Result<std::string> file_content_state = PxState::fget(filename);
 		PXASSERTM(file_content_state, "PxConfig::ReadConfig");
 		std::string file_content = file_content_state.assert();
@@ -87,11 +87,7 @@ namespace PxConfig {
 			auto key = PxFunction::trim(key_value[0]);
 			auto value = PxFunction::trim(key_value[1]);
 			
-			auto escapedValue = Escape(value, argument, c.maxargs-1);
-			
-			for (auto &i : escapedValue) {
-				ConfSetValue(&c, key, PxFunction::trim(i));
-			}
+			ConfSetValue(&c, key, PxFunction::trim(value));
 		}
 		return c;
 	}

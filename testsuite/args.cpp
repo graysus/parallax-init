@@ -14,7 +14,20 @@ std::string PxTestMain(int argc, const char *argv[]) {
 	PxArg::ValueArgument argvaly("argument-y", 'y');
 	PxArg::ValueArgument argvalz("argument-z", 'z');
 
-	auto res = PxArg::parseArgs(v, {&arg1, &arg2, &arg3, &arglong, &arglong2, &argvalx, &argvaly, &argvalz});
+
+
+	PxArg::ArgParser parser({}, {
+		&arg1, 
+		&arg2, 
+		&arg3, 
+		&arglong, 
+		&arglong2, 
+		&argvalx, 
+		&argvaly, 
+		&argvalz
+	});
+	auto res = parser.parseArgs(v);
+	res.assert();
 
 	std::string report;
 	if (arg1.active) report += "A1;";
