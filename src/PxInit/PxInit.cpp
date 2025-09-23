@@ -90,12 +90,18 @@ PxResult::Result<void> OnCommand(PxIPC::EventContext<char> *ctx) {
 void cad(int sig) {
 	shutdown(1);
 }
+CollectorJob cj;
+
+static void onchild(int _) {
+	cj.tick();
+}
 
 int main(int argc, const char *argv[]) {
 #ifdef PXFLAGDEBUG
 	signal(SIGINT, SIG_IGN);
 	kill(getpid(), SIGINT);
 #endif
+	signal(SIGCHLD, onchild);
 	if (getpid() != 1) {
 		CheckCommand(argc, argv, "poweroff", "target poweroff");
 		CheckCommand(argc, argv, "reboot", "target reboot");
@@ -128,7 +134,6 @@ int main(int argc, const char *argv[]) {
 	serv.on_command = OnCommand;
 
 	jobs.AddJob(std::make_shared<PxIPC::ServerJob<char>>(&serv));
-	jobs.AddJob(std::make_shared<CollectorJob>());
 
 	if (chown("/run/parallax-pid1.sock", 0, 0) < 0) {
 		perror("parallax-pid1 / chown");
