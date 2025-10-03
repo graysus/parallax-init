@@ -30,7 +30,7 @@ namespace PxState {
 		char buf[PXS_BUF_SIZE];
 		while (!feof(file)) {
 			size_t nbytes = fread(buf, sizeof(char), PXS_BUF_SIZE, file);
-			if (nbytes == 0) continue;
+			if (nbytes == 0 || nbytes == -1) break;
 			if (ferror(file)) {
 				fclose(file);
 				return PxResult::Result<std::string>("PxState::get(\""+filename+"\") / fread", errno);

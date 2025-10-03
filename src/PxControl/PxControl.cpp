@@ -1,4 +1,5 @@
 
+#include "PxControl.hpp"
 #include <PxFunction.hpp>
 #include <PxIPC.hpp>
 #include <PxResult.hpp>
@@ -28,59 +29,14 @@ struct PxCommand {
 	std::string description;
 };
 
+PxFlags fl = {};
+
 std::string getsvman() {
 	return isUser ? "/run/parallax-svman-u"+std::to_string(uid)+".sock" : "/run/parallax-svman.sock";
 }
-
-PxResult::Result<void> CmdStart(std::vector<std::string> args) {
-	PxIPC::Client cli;
-	PXASSERTM(cli.Connect(getsvman()), "PxControl / CmdStart");
-	for (auto &i : args) {
-		PXASSERTM(cli.Write("start "+i+'\0'), "PxControl / CmdStart");
-
-		auto res = cli.Read();
-		PXASSERTM(res, "PxControl / CmdStart");
-		auto stat = res.assert();
-
-		auto splitted = PxFunction::split(stat);
-		if (splitted.size() < 3 || splitted[0] == "error" || splitted[2] != "started") {
-			PxLog::log.error("Failed to start "+i+", see logs for details.");
-			return PxResult::Null;
-		}
-	}
-
-	if (args.size() == 1) {
-		PxLog::log.info("Started service "+args[0]+".");
-	} else {
-		PxLog::log.info("Started "+std::to_string(args.size())+" services.");
-	}
-	return PxResult::Null;
-}
-
-PxResult::Result<void> CmdStop(std::vector<std::string> args) {
-	PxIPC::Client cli;
-	auto res = cli.Connect(getsvman());
-	if (res.eno) return res;
-	for (auto &i : args) {
-		PXASSERTM(cli.Write("stop "+i+'\0'), "PxControl / CmdStop");
-
-		auto res = cli.Read();
-		PXASSERTM(res, "PxControl / CmdStop");
-		auto stat = res.assert();
-
-		auto splitted = PxFunction::split(stat);
-		if (splitted.size() < 3 || splitted[0] == "error" || splitted[2] != "stopped") {
-			PxLog::log.error("Failed to stop "+i+", see logs for details.");
-			return PxResult::Null;
-		}
-	}
-	if (args.size() == 1) {
-		PxLog::log.info("Stopped service "+args[0]+".");
-	} else {
-		PxLog::log.info("Stopped "+std::to_string(args.size())+" services.");
-	}
-	return PxResult::Null;
-}
+PxResult::Result<void> CmdStart(std::vector<std::string> args);
+PxResult::Result<void> CmdStop(std::vector<std::string> args);
+PxResult::Result<void> CmdRestart(std::vector<std::string> args);
 
 PxResult::Result<void> ensrv(std::string svname, bool enabled) {
 	PxService::Service sv(svname, NULL, isUser, uid);
@@ -141,6 +97,9 @@ PxResult::Result<void> CmdEnable(std::vector<std::string> args) {
 		if (res.eno) return res;
 	}
 	PxLog::log.info("Enabled service(s) successfully.");
+	if (fl.now) {
+		return CmdStart(args);
+	}
 	return PxResult::Null;
 }
 
@@ -150,6 +109,9 @@ PxResult::Result<void> CmdDisable(std::vector<std::string> args) {
 		if (res.eno) return res;
 	}
 	PxLog::log.info("Disabled service(s) successfully.");
+	if (fl.now) {
+		return CmdStop(args);
+	}
 	return PxResult::Null;
 }
 PxResult::Result<void> CmdStatus(std::vector<std::string> args) {
@@ -197,6 +159,7 @@ PxResult::Result<void> CmdLicense(std::vector<std::string> _) {
 std::map<std::string, PxCommand> commands = {
 	{"start", {1, -1, false, true, CmdStart, "Start a service"}},
 	{"stop", {1, -1, false, true, CmdStop, "Stop a service"}},
+	{"restart", {1, -1, false, true, CmdRestart, "Restart a service"}},
 	{"enable", {1, -1, false, true, CmdEnable, "Enable a service at boot time"}},
 	{"disable", {1, -1, false, true, CmdDisable, "Disable a service at boot time"}},
 	{"status", {1, -1, false, true, CmdStatus, "Get the status of a service"}},
@@ -205,7 +168,7 @@ std::map<std::string, PxCommand> commands = {
 };
 
 std::vector<std::string> ordered_commands = {
-	"start", "stop", "enable", "disable", "status", "version", "license"
+	"start", "stop", "restart", "enable", "disable", "status", "version", "license"
 };
 
 int main(int argc, const char *argv[]) {
@@ -213,8 +176,9 @@ int main(int argc, const char *argv[]) {
 
 	PxArg::Argument help("help", 'h', "Display this message");
 	PxArg::Argument isuser("user", 'u', "Send commands to user daemon");
+	PxArg::Argument now("now", 'n', "Start/stop a service in addition to enabling/disabling it.");
 	PxArg::SelectArgument command("COMMAND", "The command to send to the Parallax daemon");
-	PxArg::ArgParser parser({&command}, {&help, &isuser});
+	PxArg::ArgParser parser({&command}, {&help, &isuser, &now});
 
 	for (auto &i : ordered_commands) {
 		command.addOption(i, commands[i].description);
@@ -243,6 +207,8 @@ int main(int argc, const char *argv[]) {
 		PxLog::log.info("Type pxctl --help for help.");
 		return 1;
 	}
+
+	fl.now = now.active;
 
 	if (isuser.active) {
 		isUser = true;

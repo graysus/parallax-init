@@ -74,6 +74,9 @@ void shutdown(int poweropt) {
 	if (shuttingDown) return;
 	PxLog::log.unsuppress();
 	shuttingDown = true;
+
+	signal(SIGINT, SIG_IGN);
+	signal(SIGCHLD, SIG_IGN);
     
     // sync first so disk cache is already flushed by shutdown
 	sync();

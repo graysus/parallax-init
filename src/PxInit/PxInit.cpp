@@ -25,6 +25,7 @@
 pid_t daemon_pid;
 PxIPC::Server<char> serv;
 PxJob::JobServer jobs;
+bool cadPress = false;
 
 class CollectorJob : public PxJob::Job {
 public:
@@ -36,6 +37,7 @@ public:
 		finishing = false;
 	}
 	PxResult::Result<void> tick() override {
+		if (shuttingDown) return PxResult::Null;
 		for (auto &i : std::filesystem::directory_iterator("/proc")) {
 			pid_t pid = std::atoi(i.path().filename().c_str());
 
@@ -88,7 +90,7 @@ PxResult::Result<void> OnCommand(PxIPC::EventContext<char> *ctx) {
 }
 
 void cad(int sig) {
-	shutdown(1);
+	cadPress = true;
 }
 CollectorJob cj;
 
@@ -157,6 +159,9 @@ int main(int argc, const char *argv[]) {
 		while (true) {
 			usleep(5000);
 			jobs.tick();
+			if (cadPress) {
+				shutdown(1);
+			}
 		}
 	} else {
 		PxProcess::CloseFD();
