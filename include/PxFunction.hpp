@@ -1,5 +1,6 @@
 
 #include <initializer_list>
+#include <iterator>
 #include <string>
 #include <vector>
 #include <PxResult.hpp>
@@ -70,6 +71,24 @@ namespace PxFunction {
 
 	template<typename T> inline std::vector<T> tovec(std::initializer_list<T> i) {
 		return (std::vector<T>)i;
+	}
+
+	template<typename BT, typename ET> class IJoin {
+	public:
+		const BT _begin;
+		const ET _end;
+
+		IJoin(BT begin, ET end) : _begin(begin), _end(end) {}
+		inline BT begin() {
+			return _begin;
+		}
+		inline ET end() {
+			return _end;
+		}
+	};
+
+	template<typename T> inline auto Reverse(const T &obj) {
+		return IJoin(obj.rbegin(), obj.rend());
 	}
 }
 

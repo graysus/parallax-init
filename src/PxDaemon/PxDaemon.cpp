@@ -20,7 +20,7 @@
 #include <vector>
 
 enum Cmd {
-	Start, Stop, FinishStart, FinishStop, ServDepend, ServRemoveDepend, ServFinish, ServFail, ServFinishFail, CascadeStop, Target, SpawnSession, Reference, Export, Query
+	Start, Stop, FinishStart, FinishStop, ServDepend, ServRemoveDepend, ServFinish, ServFail, ServFinishFail, CascadeStop, Target, SpawnSession, Reference, Export, Query, List
 };
 
 struct PxCommandRange {
@@ -44,7 +44,8 @@ std::map<std::string, PxCommandRange> CommandSizes = {
 	{"spawn", {Cmd::SpawnSession, 4, 0}},
 	{"reference", {Cmd::Reference, 1, 0}},
 	{"export", {Cmd::Export, 2, -1}},
-	{"query", {Cmd::Query, 2, 0}}
+	{"query", {Cmd::Query, 2, 0}},
+	{"list", {Cmd::List, 0, 0}}
 };
 
 std::map<PxService::ServiceState, std::string> stateNames = {
@@ -172,6 +173,14 @@ PxResult::Result<void> PxDOnCommand(PxIPC::EventContext<char> *ctx) {
 			} else {
 				ctx->reply("error invalid command\0").assert();
 			}
+			return PxResult::Null;
+		}
+		case List: {
+			std::string listing = "";
+			for (auto i : mgr.services) {
+				listing += "service "+i.first + "\n";
+			}
+			ctx->reply(listing);
 			return PxResult::Null;
 		}
 	}

@@ -11,62 +11,80 @@
 #include <PxShutdown.hpp>
 #include <PxState.hpp>
 #include <sys/wait.h>
+#include <config.hpp>
+#include <vector>
 
 extern pid_t daemon_pid;
 bool shuttingDown = false;
+bool errorsEncountered = false;
 
 #define ALLOWED_FS {"proc", "sysfs", "devtmpfs", "tmpfs", "devpts"}
 
 static inline void remount_as_readonly(std::vector<PxMount::FsEntry> &filesystems) {
-    for (auto& i : filesystems) {
+    for (auto& i : PxFunction::Reverse(filesystems)) {
         auto splitted = PxFunction::split(i.options, ",");
 
         if (PxFunction::contains(splitted, "ro"))     continue;
         if (PxFunction::startsWith(i.target, "/sys"))       continue;
         if (PxFunction::startsWith(i.target, "/proc"))      continue;
+        if (PxFunction::startsWith(i.target, "/dev"))       continue;
         if (PxFunction::contains(ALLOWED_FS, i.type)) continue;
 
-        auto status = PxMount::Mount("", i.target, "", "remount,ro");
+        auto status = PxMount::Mount(i.source, i.target, i.type, "remount,ro");
         if (status.eno) {
             PxLog::log.warn("warn: cannot remount "+i.target+": "+status.funcName+": "+strerror(status.eno));
+            errorsEncountered = true;
         }
     }
 }
 
 static inline void unmount_all(std::vector<PxMount::FsEntry> &filesystems) {
-    for (auto& i : filesystems) {
+    for (auto& i : PxFunction::Reverse(filesystems)) {
         if (i.target == "/")                                       continue;
         if (PxFunction::startsWith(i.target, "/sys"))       continue;
         if (PxFunction::startsWith(i.target, "/proc"))      continue;
+        if (PxFunction::startsWith(i.target, "/dev"))       continue;
         if (PxFunction::contains(ALLOWED_FS, i.type)) continue;
 
         auto status = PxMount::Mount("", i.target, "", "remount,ro");
         if (status.eno) {
             PxLog::log.warn("warn: cannot unmount "+i.target+": "+status.funcName+": "+strerror(status.eno));
+            errorsEncountered = true;
         }
     }
 }
 
 static inline void signal_all_processes(int signal) {
-    for (auto &i : std::filesystem::directory_iterator("/proc")) {
-        pid_t pid = std::atoi(i.path().filename().c_str());
+    std::vector<pid_t> pids;
+    int iterations = 0;
+    while (iterations++ < 10) {
+        pids.clear();
+        for (auto &i : std::filesystem::directory_iterator("/proc")) {
+            pid_t pid = std::atoi(i.path().filename().c_str());
 
-        // discard if invalid
-        if (pid == 0) continue;
+            // discard if invalid
+            if (pid == 0) continue;
+            if (pid == 1) continue;
 
-        auto resstat = PxState::fget("/proc/"+std::to_string(pid)+"/stat");
-        
-        // stopped between listing and now
-        if (resstat.eno != 0) continue;
+            auto resstat = PxState::fget("/proc/"+std::to_string(pid)+"/stat");
+            
+            // stopped between listing and now
+            if (resstat.eno != 0) continue;
 
-        auto stat = PxFunction::split(resstat.assert());
-        if (stat.size() < 3) continue;
-        auto rstat = stat[2];
+            auto stat = PxFunction::split(resstat.assert());
+            if (stat.size() < 3) continue;
+            auto rstat = stat[2];
 
-        if (rstat == "Z") continue;
+            if (rstat == "Z") continue;
 
-        // kill process
-        kill(pid, signal);
+            pids.push_back(pid);
+        }
+        if (pids.empty()) return;
+        for (auto pid : pids) {
+            // kill process
+            kill(pid, signal);
+        }
+        if (signal != SIGKILL) return;
     }
 }
 
@@ -131,6 +149,17 @@ void shutdown(int poweropt) {
 		PxLog::log.info("Unmounting all filesystems except root...");
         unmount_all(list);
 	}
+
+    if (errorsEncountered) {
+        #ifdef PXFLAGDEBUG
+        PxLog::log.warn("Errors were encountered. Waiting 15s for debug purposes...");
+        usleep(15000000);
+        #else
+        PxLog::log.warn("Errors were encountered, waiting for a bit longer...");
+        usleep(2000000);
+        #endif
+    }
+
 	shutdown_call(poweropt);
 }
 

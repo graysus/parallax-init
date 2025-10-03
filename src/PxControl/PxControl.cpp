@@ -143,6 +143,34 @@ PxResult::Result<void> CmdStatus(std::vector<std::string> args) {
 	return PxResult::Null;
 }
 
+PxResult::Result<void> CmdList(std::vector<std::string> _) {
+	PxIPC::Client cli;
+	PXASSERTM(cli.Connect(getsvman()), "PxControl / CmdList");
+	PXASSERTM(cli.Write("list"), "PxControl / CmdList");
+	auto res = cli.Read();
+	PXASSERTM(res, "PxControl / CmdList");
+	auto splitted = PxFunction::split(res.assert(), "\n");
+
+	for (auto i : splitted) {
+		if (i.empty()) continue;
+		auto splcmd = PxFunction::split(i);
+		if (splcmd[0] == "service") {
+			PXASSERTM(cli.Write("query "+splcmd[1]+" status"), "PxControl / CmdList");
+			auto response = cli.Read();
+			PXASSERTM(response, "PxControl / CmdList");
+			auto stat = response.assert();
+
+			auto basename = splcmd[1];
+			basename.reserve(25);
+			while (basename.length() < 25) basename.push_back(' ');
+
+			PxLog::log.println(basename + stat);
+		}
+	}
+
+	return PxResult::Null;
+}
+
 PxResult::Result<void> CmdVersion(std::vector<std::string> _) {
 	PxLog::log.info("Parallax version " PXVER);
 	PxLog::log.info("pxctl is a part of the parallax-init project.");
@@ -163,12 +191,13 @@ std::map<std::string, PxCommand> commands = {
 	{"enable", {1, -1, false, true, CmdEnable, "Enable a service at boot time"}},
 	{"disable", {1, -1, false, true, CmdDisable, "Disable a service at boot time"}},
 	{"status", {1, -1, false, true, CmdStatus, "Get the status of a service"}},
+	{"list-loaded", {0, 0, false, true, CmdList, "List all loaded services"}},
 	{"version", {0, 0, false, false, CmdVersion, "Get the Parallax version"}},
 	{"license", {0, 0, false, false, CmdLicense, "Prints the Parallax license"}}
 };
 
 std::vector<std::string> ordered_commands = {
-	"start", "stop", "restart", "enable", "disable", "status", "version", "license"
+	"start", "stop", "restart", "enable", "disable", "status", "list-loaded", "version", "license"
 };
 
 int main(int argc, const char *argv[]) {
