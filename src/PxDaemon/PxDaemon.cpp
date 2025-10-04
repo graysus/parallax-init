@@ -2,6 +2,7 @@
 #include <PxServiceManager.hpp>
 #include <PxJob.hpp>
 #include <cerrno>
+#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -236,9 +237,23 @@ void InitLog() {
 	PxFunction::wrap("seteuid", seteuid(mgr.uid)).assert("InitLog");
 }
 
+void onterm(int _) {
+	auto res = mgr.setTarget("logout");
+	if (res.eno) {
+		PxLog::log.error("Error on logout handler: "+res.funcName+": "+strerror(res.eno));
+	}
+}
+
+void onint(int _) {
+	auto res = mgr.setTarget("reboot");
+	if (res.eno) {
+		PxLog::log.error("Error on ctrl+alt+del handler: "+res.funcName+": "+strerror(res.eno));
+	}
+}
+
 int main(int argc, const char* argv[]) {
+
 	PxArg::Argument isuser("user", 0, "User manager", true);
-	
 	PxArg::ArgParser ps({}, {&isuser});
 
 	ps.parseArgs(PxFunction::vectorize(argc, argv)).assert("PxDaemon");
@@ -292,6 +307,12 @@ int main(int argc, const char* argv[]) {
 			return 1;
 		}
 		PxFunction::wrap("seteuid restore", seteuid(oldid)).assert("main");
+	}
+
+	if (mgr.isUser) {
+		signal(SIGTERM, onterm);
+	} else {
+		signal(SIGINT, onint);
 	}
 
 	mgr.server = &serv;

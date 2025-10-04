@@ -1,4 +1,5 @@
 
+#include <bits/types/error_t.h>
 #include <cerrno>
 #include <string>
 #include <unistd.h>
@@ -105,8 +106,12 @@ namespace PxMount {
 			}
 		}
 		if (mnt_context_mount(ctx)) {
+			error_t nerrno;
+			if (mnt_context_syscall_called(ctx)) nerrno = mnt_context_get_syscall_errno(ctx);
+			else nerrno = 1000;
+
 			mnt_free_context(ctx);
-			return PxResult::Result<void>("PxMount::Mount / mnt_context_mount", errno);
+			return PxResult::Result<void>("PxMount::Mount / mnt_context_mount", nerrno);
 		}
 		mnt_free_context(ctx);
 		return PxResult::Null;

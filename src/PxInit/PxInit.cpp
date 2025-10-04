@@ -155,12 +155,14 @@ int main(int argc, const char *argv[]) {
 	pid_t f = fork();
 	if (f < 0) PxResult::FResult("main / fork", errno).assert();
 	if (f) {
+		daemon_pid = f;
 		signal(SIGINT, cad);
 		while (true) {
 			usleep(5000);
 			jobs.tick();
 			if (cadPress) {
-				shutdown(1);
+				kill(daemon_pid, SIGINT);
+				cadPress = false;
 			}
 		}
 	} else {

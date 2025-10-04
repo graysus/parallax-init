@@ -2,23 +2,46 @@
 #include <csignal>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <linux/reboot.h>
+#include <string>
 #include <sys/signal.h>
 #include <PxLog.hpp>
 #include <PxMount.hpp>
 #include <errno.h>
 #include <sys/syscall.h>
+#include <sys/swap.h>
 #include <PxShutdown.hpp>
 #include <PxState.hpp>
 #include <sys/wait.h>
 #include <config.hpp>
 #include <vector>
+#include <PxProcess.hpp>
 
 extern pid_t daemon_pid;
 bool shuttingDown = false;
 bool errorsEncountered = false;
 
 #define ALLOWED_FS {"proc", "sysfs", "devtmpfs", "tmpfs", "devpts"}
+
+static inline void swapoff_all() {
+    std::ifstream reader("/proc/swaps", std::ios::in);
+    std::string read_str;
+
+    // ignore table header by reading it and ignoring the value
+    std::getline(reader, read_str);
+
+    // TODO: when swaps are swapped off, are they removed from this list while it's being read?
+    // If so, fix that!
+    while (std::getline(reader, read_str)) {
+        std::string source = PxFunction::split(read_str, " ", 1)[0];
+        if (swapoff(source.c_str()) < 0) {
+            PxLog::log.warn("warn: cannot swapoff "+source+": swapoff: "+strerror(errno));
+            errorsEncountered = true;
+        }
+        continue;
+    }
+}
 
 static inline void remount_as_readonly(std::vector<PxMount::FsEntry> &filesystems) {
     for (auto& i : PxFunction::Reverse(filesystems)) {
@@ -30,10 +53,19 @@ static inline void remount_as_readonly(std::vector<PxMount::FsEntry> &filesystem
         if (PxFunction::startsWith(i.target, "/dev"))       continue;
         if (PxFunction::contains(ALLOWED_FS, i.type)) continue;
 
-        auto status = PxMount::Mount(i.source, i.target, i.type, "remount,ro");
-        if (status.eno) {
-            PxLog::log.warn("warn: cannot remount "+i.target+": "+status.funcName+": "+strerror(status.eno));
-            errorsEncountered = true;
+        for (char ntry = 4; ntry > 0; ntry--) {
+            auto status = PxMount::Mount("", i.target, "", "remount,ro");
+            if (status.eno) {
+                PxLog::log.warn("warn: cannot remount "+i.target+": "+status.funcName+": "+strerror(status.eno));
+                if (ntry == 1) {
+                    PxLog::log.warn("Giving up.");
+                    errorsEncountered = true;
+                } else {
+                    usleep(1000000);
+                }
+            } else {
+                break;
+            }
         }
     }
 }
@@ -93,6 +125,8 @@ void shutdown(int poweropt) {
 	PxLog::log.unsuppress();
 	shuttingDown = true;
 
+    PxProcess::CloseFD(false);
+
 	signal(SIGINT, SIG_IGN);
 	signal(SIGCHLD, SIG_IGN);
     
@@ -132,6 +166,10 @@ void shutdown(int poweropt) {
 		usleep(1000000);
 	} else {
 		auto list = list_res.assert();
+
+		PxLog::log.info("Removing all swap devices...");
+        swapoff_all();
+        sync();
 
         // remount filesystems as readonly
 		PxLog::log.info("Remounting all filesystems as read-only...");

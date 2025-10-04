@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <PxFunction.hpp>
 #include <PxIPC.hpp>
+#include <sys/swap.h>
+#include <PxDefer.hpp>
 
 struct checked_t {
     bool checked;
@@ -150,11 +152,21 @@ int main(int argc, const char* argv[]) {
         if (automount) {
             std::cout << "\x1B]TSmount " << i.source << " " << i.target << "\x1B]TE"
                 << "mount " << i.source << " to "<< i.target << "\n";
-            auto mstat = PxMount::Mount(i.source, i.target, i.type, i.options);
-            if (mstat.eno != 0) {
-                errno = mstat.eno;
-				std::perror(("PxFilesystem / on "+i.target+" / " + mstat.funcName).c_str());
-                failed = true;
+            if (i.type == "swap") {
+                auto device = mnt_resolve_spec(i.source.c_str(), NULL);
+                DEFER(free_device, free(device));
+
+                if (swapon(device, 0) < 0) {
+                    std::perror(("PxFilesystem / on swap "+i.source+" / swapon").c_str());
+                    failed = true;
+                }
+            } else {
+                auto mstat = PxMount::Mount(i.source, i.target, i.type, i.options);
+                if (mstat.eno != 0) {
+                    errno = mstat.eno;
+                    std::perror(("PxFilesystem / on "+i.target+" / " + mstat.funcName).c_str());
+                    failed = true;
+                }
             }
             std::cout << "\x1B]TSmount-end " << i.source << " " << i.target << "\x1B]TE"
                 << "finished mounting " << i.source << " to "<< i.target << "\n";

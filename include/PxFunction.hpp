@@ -64,7 +64,7 @@ namespace PxFunction {
 	}
 
 	PxResult::Result<void> chvt(int which);
-	bool waitExist(std::string path, int timeout = 200);
+	bool waitExist(std::string path, int timeout = 1500);
 	PxResult::Result<void> assert(bool cond);
 	PxResult::Result<void> wrap(std::string name, int err);
 	PxResult::Result<void> mkdirs(std::string path, bool modeto = false);
