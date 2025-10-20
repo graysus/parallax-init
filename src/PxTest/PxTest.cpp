@@ -108,7 +108,7 @@ int main(int argc, const char *argv[]) {
 		int f2 = fork();
 		if (!f2) {
 			//PxProcess::CloseFD();
-			std::vector<std::string> vec = {"testsuite/"+i.prog, i.id};
+			std::vector<std::string> vec = {"testsuite/"+i.prog+".tstexc", i.id};
 
 			for (auto &i : PxFunction::split(i.cmdline, " ")) {
 				vec.push_back(i);

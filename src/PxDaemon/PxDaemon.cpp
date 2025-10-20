@@ -2,7 +2,9 @@
 #include <PxServiceManager.hpp>
 #include <PxJob.hpp>
 #include <cerrno>
+#include <cmath>
 #include <csignal>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -188,7 +190,7 @@ PxResult::Result<void> PxDOnCommand(PxIPC::EventContext<char> *ctx) {
 	return PxResult::Result<void>("PxDOnCommand (internal error / control reached end of function)", EFAULT);
 }
 
-std::string GetOSName() {
+std::string GetOSName(std::string &regName) {
 	// This includes the color, by the way.
 	
 	auto os_res = PxConfig::ReadConfig("/etc/os-release");
@@ -204,7 +206,8 @@ std::string GetOSName() {
 	os.ReadValue("ANSI_COLOR", ansicolors_read);
 
 	auto ansicolors = PxFunction::trim(PxFunction::join(ansicolors_read, ";"), "\"'");
-	return "\x1b["+ansicolors+"m"+PxFunction::trim(os.QuickRead("PRETTY_NAME"), "\"'")+"\x1b[0m";
+	regName = os.QuickRead("PRETTY_NAME");
+	return "\x1b["+ansicolors+"m"+PxFunction::trim(regName, "\"'")+"\x1b[0m";
 }
 void InitLog() {
 	PxFunction::wrap("seteuid", seteuid(0)).assert("InitLog");
@@ -251,8 +254,30 @@ void onint(int _) {
 	}
 }
 
-int main(int argc, const char* argv[]) {
+std::string getmotd(std::string distro) {
+	for (auto i : {
+		"/etc/motd.conf",
+		"/usr/lib/parallax/motd.conf"
+	}) {
+		auto res = PxConfig::ReadConfig(i, distro);
+		if (res.eno == ENOENT) continue;
+		if (res.eno) {
+			PxLog::log.warn("Error when getting MOTD: "+res.funcName+": "+strerror(res.eno));
+			continue;
+		}
 
+		auto motdconf = res.assert();
+		auto motds = motdconf.QuickReadVec("motd");
+
+		auto flrand = ((float)rand()) / (float)RAND_MAX;
+
+		return motds[std::floor(flrand * motds.size())];
+	}
+
+	return "";
+}
+
+int main(int argc, const char* argv[]) {
 	PxArg::Argument isuser("user", 0, "User manager", true);
 	PxArg::ArgParser ps({}, {&isuser});
 
@@ -276,8 +301,21 @@ int main(int argc, const char* argv[]) {
 	if (mgr.isUser) {
 		PxLog::log.suppress(false);
 	}
-	PxLog::log.header("Welcome to "+GetOSName()+"!");
-	PxLog::log.header("Running Parallax version " PXVER);
+
+	{
+		std::string osname;
+		PxLog::log.header("Welcome to "+GetOSName(osname)+"!");
+		PxLog::log.header("Running Parallax version " PXVER);
+
+		time_t curtime = time(NULL);
+		srand(curtime);
+
+		auto motd = getmotd(osname);
+		if (!motd.empty()) {
+			PxLog::log.subheader(motd);
+		}
+	}
+
 
 	if (!mgr.isUser) {
 		serv.Init("/run/parallax-svman.sock");

@@ -130,6 +130,10 @@ namespace PxLog {
 			println("\x1b[97;1m=== " + str + "\x1b[0m");
 			printlnlog("[HEAD] "+str, terse);
 		}
+		void subheader(std::string str, std::string terse = "subhead") {
+			println("\x1b[37m=== " + str + "\x1b[0m");
+			printlnlog("[HEAD] "+str, terse);
+		}
 		void taskSuccess(std::string str, std::string terse = "success") {
 			println("\x1b[90m[\x1b[92m*\x1b[90m] \x1b[97m"+str);
 			printlnlog("[SUCC] "+str, terse);

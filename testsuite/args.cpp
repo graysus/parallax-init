@@ -14,8 +14,6 @@ std::string PxTestMain(int argc, const char *argv[]) {
 	PxArg::ValueArgument argvaly("argument-y", 'y');
 	PxArg::ValueArgument argvalz("argument-z", 'z');
 
-
-
 	PxArg::ArgParser parser({}, {
 		&arg1, 
 		&arg2, 

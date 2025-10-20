@@ -7,3 +7,4 @@ test/*.out
 testmount
 task_run
 include/config.hpp
+testsuite/*.tstexc
