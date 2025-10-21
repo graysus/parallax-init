@@ -1,6 +1,6 @@
 !BEGIN
 LDLIBS = -lstdc++ -lmount
-CPPFLAGS += -Iinclude/ -Wpedantic -Werror -Wunused -Wunused-result
+CPPFLAGS += -Iinclude/ -Wpedantic -Werror -Wunused -Wunused-result -std=c++20
 OBJDIR = obj
 SRCDIR = src
 CPPFILES = $(wildcard $(SRCDIR)/*.cpp)

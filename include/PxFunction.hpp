@@ -41,7 +41,7 @@ namespace PxFunction {
 	}
 	// Removes at most 1 (starting from the left) of the specified item from a vector.
 	// Returns whether it was able to remove the item
-	template<typename T> bool vecRemoveItem(std::vector<T> *vec, T &item) {
+	template<typename T> bool vecRemoveItem(std::vector<T> *vec, const T& item) {
 		for (size_t i = 0; i < vec->size(); i++) {
 			if ((*vec)[i] == item) {
 				vecRemoveIndeces(vec, i);

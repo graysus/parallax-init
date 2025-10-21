@@ -1,9 +1,11 @@
 
+#include <cerrno>
 #include <csignal>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <linux/reboot.h>
+#include <set>
 #include <string>
 #include <sys/signal.h>
 #include <PxLog.hpp>
@@ -21,6 +23,7 @@
 extern pid_t daemon_pid;
 bool shuttingDown = false;
 bool errorsEncountered = false;
+std::set<pid_t> ignorePID = {};
 
 #define ALLOWED_FS {"proc", "sysfs", "devtmpfs", "tmpfs", "devpts"}
 
@@ -55,16 +58,20 @@ static inline void remount_as_readonly(std::vector<PxMount::FsEntry> &filesystem
 
         for (char ntry = 4; ntry > 0; ntry--) {
             auto status = PxMount::Mount("", i.target, "", "remount,ro");
-            if (status.eno) {
-                PxLog::log.warn("warn: cannot remount "+i.target+": "+status.funcName+": "+strerror(status.eno));
-                if (ntry == 1) {
-                    PxLog::log.warn("Giving up.");
-                    errorsEncountered = true;
-                } else {
-                    usleep(1000000);
-                }
+            if (status.eno == 0) break;
+            if (status.eno == EINVAL) {
+                // Certain pseudo-filesystems (e.g. overlayfs) will give 
+                // this error when trying to remount a readonly file system
+                // Unmount instead.
+                status = PxMount::Unmount(i.target);
+            }
+
+            PxLog::log.warn("warn: cannot remount "+i.target+": "+status.funcName+": "+strerror(status.eno));
+            if (ntry == 1) {
+                PxLog::log.warn("Giving up.");
+                errorsEncountered = true;
             } else {
-                break;
+                usleep(1000000);
             }
         }
     }
@@ -78,7 +85,7 @@ static inline void unmount_all(std::vector<PxMount::FsEntry> &filesystems) {
         if (PxFunction::startsWith(i.target, "/dev"))       continue;
         if (PxFunction::contains(ALLOWED_FS, i.type)) continue;
 
-        auto status = PxMount::Mount("", i.target, "", "remount,ro");
+        auto status = PxMount::Unmount(i.target);
         if (status.eno) {
             PxLog::log.warn("warn: cannot unmount "+i.target+": "+status.funcName+": "+strerror(status.eno));
             errorsEncountered = true;
@@ -97,6 +104,8 @@ static inline void signal_all_processes(int signal) {
             // discard if invalid
             if (pid == 0) continue;
             if (pid == 1) continue;
+
+            if (ignorePID.count(pid) != 0) continue;
 
             auto resstat = PxState::fget("/proc/"+std::to_string(pid)+"/stat");
             

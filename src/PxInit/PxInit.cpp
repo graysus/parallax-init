@@ -86,6 +86,10 @@ PxResult::Result<void> OnCommand(PxIPC::EventContext<char> *ctx) {
 	if (ctx->command == "poweroff") shutdown(0);
 	if (ctx->command == "reboot") shutdown(1);
 	if (ctx->command == "halt") shutdown(2);
+	if (PxFunction::startsWith(ctx->command, "ignore ")) {
+		pid_t pidn = std::atoi(ctx->command.substr(7).c_str());
+		ignorePID.insert(pidn);
+	}
 	return PxResult::Null;
 }
 

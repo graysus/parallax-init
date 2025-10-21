@@ -26,15 +26,25 @@
 
 #ifndef PXSSVC
 #define PXSSVC
+
 namespace PxService {
+	struct DependType {
+		std::string name;
+		bool optional;
+
+		bool operator==(const DependType &other) {
+			return name == other.name && optional == other.optional;
+		}
+	};
+
 	class Service {
 	public:
 		std::string name;
 		ServiceManager *mgr;
 		// Deps refers to both dynamic and static dependencies.
 		// For a list of static dependencies, use vec_properties
-		std::vector<std::string> deps;
-		std::vector<std::string> dependedBy;
+		std::vector<DependType> deps;
+		std::vector<DependType> dependedBy;
 		std::vector<size_t> subscribed_handles = {};
 		ServiceOverrideState userOverride = ServiceOverrideState::Auto;
 		ServiceState status = ServiceState::Inactive;
@@ -135,16 +145,43 @@ namespace PxService {
 			status = Waiting;
 			// Add dependencies
 			deps.erase(deps.begin(), deps.end());
-			conf.ReadValue("Depend", deps);
+
+			std::vector<std::string> depstr;
+			conf.ReadValue("Depend", depstr);
 
 
 			// Start dependencies
-			for (auto &i : deps) {
+			for (auto &i : depstr) {
+				bool optional = false;
+				if (PxFunction::endsWith(i, "?")) {
+					optional = true;
+					i = i.substr(0, i.length()-1);
+				}
+
 				auto res = LoadServiceOf(mgr, i);
+				if (res.eno && optional) continue;
 				PXASSERTM(res, "PxService::Service::start");
 				auto serv = res.assert();
-				serv->dependedBy.push_back(name);
-				PXASSERTM(serv->update(), "PxService::Service::start");
+
+				DependType depval = {
+					.name = name,
+					.optional = optional
+				};
+				DependType depval2 = {
+					.name = i,
+					.optional = optional
+				};
+
+				serv->dependedBy.push_back(depval);
+				deps.push_back(depval2);
+
+				auto res2 = serv->update();
+				if (res2.eno && optional) {
+					PxFunction::vecRemoveItem(&serv->dependedBy, depval);
+					PxFunction::vecRemoveItem(&deps, depval2);
+					continue;
+				}
+				PXASSERTM(res2, "PxService::Service::start");
 				// TODO: add cleanup / fail status on fail
 			}
 			return update().replace().merge("PxService::Service::start");
@@ -242,10 +279,10 @@ namespace PxService {
 			status = PxService::Running;
 
 			for (auto &i : dependedBy) {
-				auto res = LoadServiceOf(mgr, i);
-				PXASSERTM(res, "PxService::Service::raw_start");
+				auto res = LoadServiceOf(mgr, i.name);
+				PXASSERTM(res, "PxService::Service::finishStart");
 				auto serv = res.assert();
-				PXASSERTM(serv->update(), "PxService::Service::raw_start");
+				PXASSERTM(serv->update(), "PxService::Service::finishStart");
 //				// TODO: cleanup, error handling (like before)
 			}
 			bool usingConsole = getProperty("UseConsole", "false") == "true";
@@ -263,7 +300,7 @@ namespace PxService {
 
 			// dispatch stop / finstop
 			for (auto &i : dependedBy) {
-				auto res = LoadServiceOf(mgr, i);
+				auto res = LoadServiceOf(mgr, i.name);
 				if (res.eno) {
 					PxLog::log.error("Error in stop: " + res.funcName + ": " + strerror(res.eno));
 					continue;
@@ -281,7 +318,10 @@ namespace PxService {
 			userOverride = ServiceOverrideState::Exclude;
 			if (isRunning() != Include) return PxResult::Null;
 			for (auto &i : dependedBy) {
-				auto res = LoadServiceOf(mgr, i);
+				// don't stop an optional dependency
+				if (i.optional) continue;
+
+				auto res = LoadServiceOf(mgr, i.name);
 				if (res.eno) {
 					PxLog::log.error("Error in cascadeStop: " + res.funcName + ": " + strerror(res.eno));
 					continue;
@@ -327,12 +367,19 @@ namespace PxService {
 
 
 			for (auto &i : deps) {
-				auto res = LoadServiceOf(mgr, i);
+				auto res = LoadServiceOf(mgr, i.name);
 				PXASSERTM(res, "PxService::Service::finishStop");
 				auto serv = res.assert();
 				
-				if (!PxFunction::vecRemoveItem(&serv->dependedBy, name)) {
-					PxLog::log.error("failed to remove dependency "+name+" from "+i);
+				size_t idx = 0;
+				for (auto d : serv->dependedBy) {
+					if (d.name == name) break;
+					idx++;
+				}
+				if (idx == serv->dependedBy.size()) {
+					PxLog::log.error("failed to remove dependency "+name+" from "+i.name);
+				} else {
+					PxFunction::vecRemoveIndeces(&serv->dependedBy, idx);
 				}
 
 				// In case the service is only up as a dependency for this service
@@ -349,8 +396,10 @@ namespace PxService {
 			if (status == Waiting) {
 				// Check if dependencies have started.
 				for (auto &i : deps) {
-					auto res = LoadServiceOf(mgr, i);
+					auto res = LoadServiceOf(mgr, i.name);
+					if (res.eno && i.optional) continue;
 					PXASSERTM(res, "PxService::Service::update");
+					if (res.assert()->isRunning() == Exclude && i.optional) continue;
 					if (res.assert()->isRunning() != Include) return PxResult::Result(false);
 				}
 				return PxResult::LvAttach(raw_start(), true);
@@ -358,8 +407,9 @@ namespace PxService {
 			if (status == StopWaiting) {
 				// Check if dependents have stopped.
 				for (auto &i : dependedBy) {
-					auto res = LoadServiceOf(mgr, i);
+					auto res = LoadServiceOf(mgr, i.name);
 					PXASSERTM(res, "PxService::Service::update");
+					if (res.assert()->isRunning() == Include && i.optional) continue;
 					if (res.assert()->isRunning() != Exclude) return PxResult::Result(false);
 				}
 				return PxResult::LvAttach(raw_stop(), true);

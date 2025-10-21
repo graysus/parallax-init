@@ -127,6 +127,7 @@ namespace PxMount {
 			mnt_free_context(ctx);
 			return PxResult::Result<void>("PxMount::Unmount / mnt_context_find_umount_fs", errno);
 		}
+		mnt_context_set_fs(ctx, fs);
 		if (mnt_context_umount(ctx) != 0) {
 			mnt_free_context(ctx);
 			return PxResult::Result<void>("PxMount::Unmount / mnt_context_umount", errno);
