@@ -146,8 +146,9 @@ namespace PxService {
 			// Add dependencies
 			deps.erase(deps.begin(), deps.end());
 
-			std::vector<std::string> depstr;
+			std::vector<std::string> depstr, after;
 			conf.ReadValue("Depend", depstr);
+			conf.ReadValue("After", after);
 
 
 			// Start dependencies
@@ -183,6 +184,35 @@ namespace PxService {
 				}
 				PXASSERTM(res2, "PxService::Service::start");
 				// TODO: add cleanup / fail status on fail
+			}
+
+			for (auto &i : after) {
+				auto res = LoadServiceOf(mgr, i);
+				if (res.eno) continue;
+				auto serv = res.assert();
+
+				DependType depval = {
+					.name = name,
+					.optional = true
+				};
+				DependType depval2 = {
+					.name = i,
+					.optional = true
+				};
+
+				auto resU = serv->update();
+				if (resU.eno) continue;
+				if (!resU.assert()) continue;
+
+				serv->dependedBy.push_back(depval);
+				deps.push_back(depval2);
+
+				auto res2 = serv->update();
+				if (res2.eno) {
+					PxFunction::vecRemoveItem(&serv->dependedBy, depval);
+					PxFunction::vecRemoveItem(&deps, depval2);
+					continue;
+				}
 			}
 			return update().replace().merge("PxService::Service::start");
 		}

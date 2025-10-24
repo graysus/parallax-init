@@ -8,11 +8,21 @@
 #ifndef PXCONF
 #define PXCONF
 namespace PxConfig {
-	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit, std::string sep);
-	class conf {
+	enum ConfigParseMode {
+		Normal, Multiline
+	};
+
+	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit, std::string sep, bool multi = false);
+
+	class conf;
+	PxResult::Result<void> ConfSetValue(conf *c, std::string key, std::string value);
+	PxResult::Result<conf> ReadConfig(std::string filename, std::string argument = "");
+	class conf  {
 	private:
-		std::map<std::string, std::vector<std::string>> vec_properties;
+		std::map<std::string, std::vector<std::string>> vec_properties ;
 	public:
+		friend PxResult::Result<conf> ReadConfig(std::string filename, std::string argument);
+
 		std::string def_arg;
 		std::string separator = ":";
 		int maxargs = 9;
@@ -45,7 +55,5 @@ namespace PxConfig {
 			return output;
 		}
 	};
-	PxResult::Result<void> ConfSetValue(conf *c, std::string key, std::string value);
-	PxResult::Result<conf> ReadConfig(std::string filename, std::string argument = "");
 };
 #endif

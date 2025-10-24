@@ -1,2 +1,9 @@
 
 InsertDiskette = Please insert the diskette labelled $1 into $2 and press a key...
+
+[[ InsertDiskette2 ]]
+No suitable disk drive found.
+Setup cannot continue. Press F3 to exit.
+[[ End ]]
+
+InsertDiskette3 = Testing\; backslash\$1 escapes

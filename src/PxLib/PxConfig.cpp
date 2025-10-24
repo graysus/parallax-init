@@ -2,7 +2,7 @@
 #include <PxConfig.hpp>
 
 namespace PxConfig {
-	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit, std::string sep) {
+	std::vector<std::string> Escape(std::string baseString, std::string argument, int msplit, std::string sep, bool multi) {
 		std::string outputString;
 		std::vector<std::string> outputVector;
 		auto larguments = PxFunction::split(argument, sep, msplit);
@@ -27,7 +27,6 @@ namespace PxConfig {
 					break;
 				}
 				escaping = false;
-				continue;
 			} else if (varEscaping) {
 				if ('1' <= c && c <= '9') {
 					if (larguments.size() > c-'1') {
@@ -40,9 +39,7 @@ namespace PxConfig {
 					outputString += argument;
 				}
 				varEscaping = false;
-				continue;
-			}
-			if (c == '\\') {
+			} else if (c == '\\') {
 				escaping = true;
 			} else if (c == '$') {
 				varEscaping = true;
@@ -77,22 +74,55 @@ namespace PxConfig {
 		std::string file_content = file_content_state.assert();
 		std::vector<std::string> file_lines = PxFunction::split(file_content, "\n");
 		int lineno = 0;
+
+		ConfigParseMode mode = Normal;
+		std::string multiline_path;
+
 		for (auto& i : file_lines) {
 			lineno++;
-			// Remove comments and whitespace
-			auto line = PxFunction::trim(PxFunction::split(i, "#", 1)[0]);
 
-			// Skip if completely blank
-			if (line.length() == 0) continue;
+			switch (mode) {
+				case Normal: {
+					// Remove comments and whitespace
+					auto line = PxFunction::trim(PxFunction::split(i, "#", 1)[0]);
 
-			auto key_value = PxFunction::split(line, "=", 1);
-			if (key_value.size() != 2) {
-				return PxResult::Result<conf>("PxConfig::ReadConfig (incomplete expression on line "+std::to_string(lineno)+")", EINVAL);
+					// Skip if completely blank
+					if (line.length() == 0) continue;
+
+					if (PxFunction::startsWith(line, "[[") && PxFunction::endsWith(line, "]]")) {
+						mode = Multiline;
+						multiline_path = PxFunction::trim(line.substr(2, line.length()-4));
+						c.vec_properties[multiline_path].push_back("");
+						break;
+					}
+
+					auto key_value = PxFunction::split(line, "=", 1);
+					if (key_value.size() != 2) {
+						return PxResult::FResult("PxConfig::ReadConfig (incomplete expression on line "+std::to_string(lineno)+")", EINVAL);
+					}
+					auto key = PxFunction::trim(key_value[0]);
+					auto value = PxFunction::trim(key_value[1]);
+					
+					ConfSetValue(&c, key, PxFunction::trim(value));
+					break;
+				}
+				case Multiline: {
+					auto subline = PxFunction::trim(PxFunction::split(i, "#", 1)[0]);
+					if (PxFunction::startsWith(subline, "[[") && PxFunction::endsWith(subline, "]]")) {
+						std::string tkn = PxFunction::trim(subline.substr(2, subline.length()-4));
+						if (tkn == "End" || 
+							(PxFunction::startsWith(tkn, "/") &&
+							 PxFunction::trim(tkn.substr(1)) == multiline_path)) {
+								// remove extra newline character
+								c.vec_properties[multiline_path].back().pop_back();
+								mode = Normal;
+								break;
+						}
+					}
+					c.vec_properties[multiline_path].back() += i+'\n';
+					break;
+				}
 			}
-			auto key = PxFunction::trim(key_value[0]);
-			auto value = PxFunction::trim(key_value[1]);
-			
-			ConfSetValue(&c, key, PxFunction::trim(value));
 		}
 		return c;
 	}
