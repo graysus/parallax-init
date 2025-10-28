@@ -133,4 +133,14 @@ namespace PxFunction {
 		}
 		return PxResult::Null;
 	}
+
+	std::string replaceAll(const std::string& strinput, const std::string& strfind, const std::string& strreplace) {
+		std::string strcurrent = strinput;
+		size_t curIndex = 0;
+		while ((curIndex = strcurrent.find(strfind, curIndex)) != std::string::npos) {
+			strcurrent.replace(curIndex, strfind.length(), strreplace.c_str());
+			curIndex += strreplace.length();
+		}
+		return strcurrent;
+	}
 }

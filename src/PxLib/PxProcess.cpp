@@ -25,4 +25,21 @@ namespace PxProcess {
 		}
 #endif
 	}
+
+	PxResult::Result<void> Exec(std::vector<std::string> argv) {
+		if (argv.size() <= 1) {
+			return PxResult::FResult("PxProcess::Exec (not enough arguments)", EINVAL);
+		}
+
+		char **cstrs = (char **)malloc(sizeof(char* const) * (argv.size()+1));
+		size_t pos = 0;
+		for (std::string i : argv) {
+			cstrs[pos] = strdup(i.c_str());
+			pos++;
+		}
+		cstrs[pos] = NULL;
+		execv(cstrs[0], cstrs+1);
+
+		return PxResult::FResult("PxProcess::Exec / execv", errno);
+	}
 };

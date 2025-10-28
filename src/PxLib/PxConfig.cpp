@@ -15,11 +15,10 @@ namespace PxConfig {
 				case 'n':
 					outputString += "\n";
 					break;
-				case '\\':
-					outputString += '\\';
-					break;
 				case '$':
-					outputString += '$';
+				case ';':
+				case '\\':
+					outputString += c;
 					break;
 				default:
 					outputString += '\\';
@@ -119,7 +118,10 @@ namespace PxConfig {
 								break;
 						}
 					}
-					c.vec_properties[multiline_path].back() += i+'\n';
+					auto sanitized = PxFunction::replaceAll(i, "\\", "\\\\");
+					sanitized = PxFunction::replaceAll(sanitized, "$", "\\$");
+					sanitized = PxFunction::replaceAll(sanitized, ";", "\\;");
+					c.vec_properties[multiline_path].back() += sanitized+'\n';
 					break;
 				}
 			}

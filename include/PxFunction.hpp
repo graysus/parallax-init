@@ -90,6 +90,7 @@ namespace PxFunction {
 	template<typename T> inline auto Reverse(const T &obj) {
 		return IJoin(obj.rbegin(), obj.rend());
 	}
+	std::string replaceAll(const std::string& strinput, const std::string& strfind, const std::string& strreplace);
 }
 
 #endif

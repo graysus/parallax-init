@@ -9,6 +9,8 @@
 #include <sys/wait.h>
 #include <PxProcess.hpp>
 #include <unistd.h>
+#include <PxService.hpp>
+#include <vector>
 
 enum Stages {
 	Starting, Running, Ending, Erroring
@@ -47,7 +49,33 @@ signed int runShell(std::string shell, int *pid) {
 		// safety first
 		unsetenv("PATH");
 		unsetenv("LD_LIBRARY_PATH");
-		execl("/bin/sh", "sh", "-lc", ("exec "+shell).c_str(), NULL);
+		if (shell.find("\n") != std::string::npos) {
+			std::vector<std::string> execV = {};
+			if (PxFunction::startsWith(shell, "#!")) {
+				auto shebangLine = shell.substr(2, shell.find("\n")-2);
+				auto splitted = PxFunction::split(shebangLine, " ", 1);
+
+				execV.push_back(splitted[0]);
+
+				for (auto i : splitted) {
+					execV.push_back(i);
+				}
+
+				// TODO: better
+				execV.push_back("-lc");
+				execV.push_back(shell);
+			} else {
+				// TODO: maybe better?
+				execV.push_back("/bin/sh");
+				execV.push_back("/bin/sh");
+				execV.push_back("-lc");
+				execV.push_back(shell);
+			}
+
+			PxProcess::Exec(execV);
+		} else {
+			PxProcess::Exec("/bin/sh", "sh", "-lc", ("exec "+shell).c_str());
+		}
 		exit(1);
 	} else {
 		if (pid != NULL) {
@@ -85,21 +113,25 @@ int main(int argc, const char *argv[]) {
 		PxLog::log.error("8 arguments required.");
 		return 1;
 	}
-
-	ShellBegin = args[1];
-	ShellRun = args[2];
-	ShellEnd = args[3];
-	ShellErr = args[4];
 	ServName = args[6];
+	IsUser = args[7] == "true";
+	UserUID = std::atoi(args[8].c_str());
+
+	PxService::Service svc(ServName, NULL, IsUser, UserUID);
+	svc.reload();
+	
+	// If set to true: Child program will be SIGKILL-ed
+	// If set to false: Child program will be SIGTERM-ed
+	Killable = svc.getProperty("KillOnStop", "false") == "true";
+
+	ShellBegin = svc.getProperty("StartCommand", "true");
+	ShellRun = svc.getProperty("Command", "hang");
+	ShellEnd = svc.getProperty("StopCommand", "true");
+	ShellErr = svc.getProperty("FailCommand", "true");
 
 	signal(SIGINT, IntHandle);
 	signal(SIGPIPE, PipeHandle);
 
-	// If set to true: Child program will be SIGKILL-ed
-	// If set to false: Child program will be SIGTERM-ed
-	Killable = args[5] == "true";
-	IsUser = args[7] == "true";
-	UserUID = std::atoi(args[8].c_str());
 
 	if (IsUser) {
 		cli.Connect("/run/parallax-svman-u" + std::to_string(UserUID) + ".sock").assert("PxLaunch");
