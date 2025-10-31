@@ -1,26 +1,18 @@
 !BEGIN
 LDLIBS = -lstdc++ -lmount
 CPPFLAGS += -Iinclude/ -Wpedantic -Werror -Wunused -Wunused-result -std=c++20
+
 OBJDIR = obj
 SRCDIR = src
+INCDIR = include
+
 CPPFILES = $(wildcard $(SRCDIR)/*.cpp)
+INCFILES = $(wildcard $(INCDIR)/*.hpp)
 OBJ = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(CPPFILES))
-MOUNT_TESTRUN = mountpoint ./testmount || guestmount -a tester.qcow2 -m /dev/sda1 --rw ./testmount
-UNMOUNT_TESTRUN = mountpoint ./testmount/ && guestunmount ./testmount/
 
 # Options
-DESTDIR ?= /
-KERNEL_APPEND ?= console=ttyS0,115200
-QEMU_APPEND ?= -nographic
-
 all: ${OUT}  # OUT is defined by configure
-
-out:
-	mkdir --parents out
-	mkdir --parents out/parallax
-
-obj/%/:
-	mkdir --parents $@
+	@echo Done!
 
 !TEMPLATE
 
@@ -28,12 +20,19 @@ obj/%/:
 
 OBJ_!Argument1!=$(patsubst $(SRCDIR)/!Argument1!/%.cpp,$(OBJDIR)/!Argument1!/%.o,$(wildcard $(SRCDIR)/!Argument1!/*.cpp))
 
-$(OBJDIR)/!Argument1!/%.o: $(SRCDIR)/!Argument1!/%.cpp obj/!Argument1!/
-	$(CXX) $(CFLAGS) $(CPPFLAGS) !Flags! -c -o $@ $<
+$(OBJDIR)/!Argument1!/%.o: $(SRCDIR)/!Argument1!/%.cpp
+	@mkdir --parents obj/!Argument1!
+	@echo " CXX   "$<
+	@$(CXX) $(CFLAGS) $(CPPFLAGS) !Flags! -c -o $@ $<
 
-out/!Argument2!: out !Deps! $(OBJ_!Argument1!)
-	$(CXX) $(CFLAGS) $(CPPFLAGS) !Argument3! -o out/!Argument2! $(OBJ_!Argument1!) $(LDLIBS)
-	[ -f task_run/install ] && rm task_run/install || true
+out/!Argument2!: !Deps! $(OBJ_!Argument1!) $(INCFILES)
+	@mkdir --parents out
+	@mkdir --parents out/parallax
+
+	@echo " LD    "$@
+
+	@$(CXX) $(CFLAGS) $(CPPFLAGS) !Argument3! -o out/!Argument2! $(OBJ_!Argument1!) $(LDLIBS)
+	@[ -f task_run/install ] && rm task_run/install || true
 	
 !END
 install:

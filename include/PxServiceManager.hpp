@@ -67,7 +67,7 @@ namespace PxService {
 			
 			service->failLocked = false;
 			service->userOverride = ServiceOverrideState::Include;
-			return PxResult::LvClear(service->update()).merge("PxService::StartService");
+			return PxResult::Clear(service->update()).merge("PxService::StartService");
 		}
 		PxResult::Result<void> StopService(std::string ServiceName, size_t hndl = SIZE_MAX) {
 			// Stop request from the user or a program.
@@ -85,7 +85,7 @@ namespace PxService {
 				service->status = ServiceState::Inactive;
 			}
 			service->userOverride = ServiceOverrideState::Exclude;
-			return PxResult::LvClear(service->update()).merge("PxService::StopService");
+			return PxResult::Clear(service->update()).merge("PxService::StopService");
 		}
 
 		PxResult::Result<void> FailService(std::string ServiceName) {
@@ -95,7 +95,7 @@ namespace PxService {
 			auto service = serviceres.assert();
 			
 			service->failLocked = true;
-			return PxResult::LvClear(service->update()).merge("PxService::StopService");
+			return PxResult::Clear(service->update()).merge("PxService::StopService");
 		}
 		PxResult::Result<void> CascadeStopService(std::string ServiceName) {
 			// Cascading stop request from the user or a program.

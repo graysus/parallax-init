@@ -342,7 +342,7 @@ namespace PxService {
 					continue;
 				}
 			}
-			return PxResult::LvClear(update());
+			return PxResult::Clear(update());
 		}
 		PxResult::Result<void> cascadeStop() {
 			userOverride = ServiceOverrideState::Exclude;
@@ -364,7 +364,7 @@ namespace PxService {
 				}
 				// TODO: recursion protection
 			}
-			return PxResult::LvClear(update()).merge("PxService::Service::cascadeStop");
+			return PxResult::Clear(update()).merge("PxService::Service::cascadeStop");
 		}
 		PxResult::Result<void> raw_stop() {
 			bool usingConsole = getProperty("UseConsole", "false") == "true";
@@ -432,7 +432,7 @@ namespace PxService {
 					if (res.assert()->isRunning() == Exclude && i.optional) continue;
 					if (res.assert()->isRunning() != Include) return PxResult::Result(false);
 				}
-				return PxResult::LvAttach(raw_start(), true);
+				return PxResult::Attach(raw_start(), true);
 			}
 			if (status == StopWaiting) {
 				// Check if dependents have stopped.
@@ -442,13 +442,13 @@ namespace PxService {
 					if (res.assert()->isRunning() == Include && i.optional) continue;
 					if (res.assert()->isRunning() != Exclude) return PxResult::Result(false);
 				}
-				return PxResult::LvAttach(raw_stop(), true);
+				return PxResult::Attach(raw_stop(), true);
 			}
 			if (shouldRun()) {
 				// This language makes me wanna kernel modesetting
-				if (isRunning() == Exclude) return PxResult::LvAttach<bool>(start(), true);
+				if (isRunning() == Exclude) return PxResult::Attach<bool>(start(), true);
 			} else {
-				if (isRunning() == Include) return PxResult::LvAttach<bool>(stop(), true);
+				if (isRunning() == Include) return PxResult::Attach<bool>(stop(), true);
 			}
 			return PxResult::Result(false);
 		}

@@ -132,22 +132,13 @@ namespace PxResult {
 	template<typename T> inline PxResult::Result<void> Clear(const PxResult::Result<T>& result) {
 		return (PxResult::Result<void>) result;
 	}
-	template<typename T> inline PxResult::Result<void> LvClear(const PxResult::Result<T>& result) {
-		return Clear(result);
-	}
 	template<typename T> inline PxResult::Result<T> Attach(const PxResult::Result<void>& result, const T& object) {
 		return result.replace(object);
-	}
-	template<typename T> inline PxResult::Result<T> LvAttach(const PxResult::Result<void>& result, const T& object) {
-		return Attach(result, object);
 	}
 	template<typename T, typename T2> inline PxResult::Result<T> Reattach(const PxResult::Result<T2>& result, const T& object) {
 		return result.replace(object);
 	}
-	template<typename T, typename T2> inline PxResult::Result<T> LvReattach(const PxResult::Result<T2> result, const T& object) {
-		return Reattach<T>(result, object);
-	}
-	static struct {
+	static inline struct {
 		inline operator PxResult::Result<void>() {
 			return PxResult::Result<void>();
 		}
