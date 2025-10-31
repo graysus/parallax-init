@@ -1,4 +1,4 @@
-## Parallax-init ([v0.01](./PXVERSION))
+## Parallax-init ([v0.04](./PXVERSION))
 This init system aims to have the user-friendliness and modernity of Systemd, but with the lightness and portability of traditional init systems like OpenRC.<br>
 Keep in mind that this is an **ALPHA RELEASE**, so you may encounter strange issues, especially on more configurations. <br>
 Also keep in mind that this init system is missing many features, and is tested only on Artix Linux. **Additionally, this init system only supports Linux currently, and LIBCs other than Glibc are not tested.** <br>
