@@ -14,6 +14,10 @@ OBJ = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(CPPFILES))
 all: ${OUT}  # OUT is defined by configure
 	@echo Done!
 
+del/%:
+	@echo -e "\x1b[90m DEL   \x1b[0m"$*
+	@if [ -e $* ]; then rm -rf $*; fi
+
 !TEMPLATE
 
 # Everything in !XX! is defined by configure
@@ -22,14 +26,14 @@ OBJ_!Argument1!=$(patsubst $(SRCDIR)/!Argument1!/%.cpp,$(OBJDIR)/!Argument1!/%.o
 
 $(OBJDIR)/!Argument1!/%.o: $(SRCDIR)/!Argument1!/%.cpp
 	@mkdir --parents obj/!Argument1!
-	@echo " CXX   "$<
+	@echo -e "\x1b[90m CXX   \x1b[0m"$<
 	@$(CXX) $(CFLAGS) $(CPPFLAGS) !Flags! -c -o $@ $<
 
 out/!Argument2!: !Deps! $(OBJ_!Argument1!) $(INCFILES)
 	@mkdir --parents out
 	@mkdir --parents out/parallax
 
-	@echo " LD    "$@
+	@echo -e "\x1b[90m LD    \x1b[0m"$@
 
 	@$(CXX) $(CFLAGS) $(CPPFLAGS) !Argument3! -o out/!Argument2! $(OBJ_!Argument1!) $(LDLIBS)
 	@[ -f task_run/install ] && rm task_run/install || true
@@ -64,6 +68,4 @@ install:
 check:
 	out/PxTest
 
-clean:
-	[ -d out ] && rm -r out || true
-	[ -d obj ] && rm -r obj || true
+clean: del/out del/obj

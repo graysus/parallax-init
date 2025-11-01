@@ -20,8 +20,8 @@ namespace PxService {
 		Stopping,   	// The service was stopped by the user.
 		Failed,	    	// The service crashed, failed to start or failed to stop.
 		FailStopping,	// The service is stopping because it has failed
-		Waiting,	// The service is waiting for a dependency to finish starting
-		StopWaiting	// The service is waiting for its dependents to finish stopping
+		Waiting,	    // The service is waiting for a dependency to finish starting
+		StopWaiting	    // The service is waiting for its dependents to finish stopping
 	};
 	class LogServiceStartTask : public PxLog::LogTask {
 	public:
