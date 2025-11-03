@@ -42,7 +42,7 @@ out/!Argument2!: !Deps! $(OBJ_!Argument1!) $(INCFILES)
 install:
 	mkdir --parents $(DESTDIR)/{usr/lib{,/parallax,/security},usr/bin,sbin,usr/include}
 	install -Dm755 -o0 out/parallax/PxInit $(DESTDIR)/usr/lib/parallax/PxInit
-	install -Dm4755 -o0 out/parallax/PxDaemon $(DESTDIR)/usr/lib/parallax/PxDaemon
+	install -Dm755 -o0 out/parallax/PxDaemon $(DESTDIR)/usr/lib/parallax/PxDaemon
 	install -Dm755 -o0 out/parallax/PxLaunch $(DESTDIR)/usr/lib/parallax/PxLaunch
 	install -Dm755 -o0 out/parallax/PxLogger $(DESTDIR)/usr/lib/parallax/PxLogger
 	install -Dm755 -o0 out/parallax/pxfsck $(DESTDIR)/usr/lib/parallax/pxfsck
@@ -64,6 +64,7 @@ install:
 	ln -sf init ${DESTDIR}/sbin/halt
 	[ -d $(DESTDIR)/usr/include/parallax ] && rm -rf $(DESTDIR)/usr/include/parallax || true
 	cp -r include $(DESTDIR)/usr/include/parallax
+	chmod u+s $(DESTDIR)/usr/lib/parallax/PxDaemon
 
 check:
 	out/PxTest

@@ -16,7 +16,7 @@ namespace PxMount {
 		int freq = 0;
 		int fsck_pass = 0;
 	};
-	PxResult::Result<FsEntry> LMFSToPxFS(struct libmnt_fs* fs);
+	PxResult::Result<FsEntry> MakeFsEntry(struct libmnt_fs* fs);
 	PxResult::Result<void> Tab_LoadFromFile(struct libmnt_table** table, std::string path);
 	PxResult::Result<std::vector<FsEntry>> Tab_List(struct libmnt_table* table);
 	void Tab_Destroy(struct libmnt_table* table);

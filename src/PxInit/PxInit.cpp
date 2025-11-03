@@ -66,10 +66,11 @@ public:
 	}
 };
 
+CollectorJob cj;
 
-void CheckCommand(int argc, const char **argv, std::string target, std::string command) {
+
+inline void CheckCommand(int argc, const char **argv, std::string target, std::string command) {
 	std::string path = argc > 1 ? argv[1] : "";
-//	PxLog::log.info((std::string)argv[0]+", "+path);
 	if ((std::string)argv[0] == target || (std::string)path == target || PxFunction::endsWith(argv[0], "/"+target)) {
 		{
 			PxIPC::Client cli;
@@ -78,7 +79,6 @@ void CheckCommand(int argc, const char **argv, std::string target, std::string c
 		} // Closes client
 		exit(0);
 	}
-	
 }
 
 PxResult::Result<void> OnCommand(PxIPC::EventContext<char> *ctx) {
@@ -96,7 +96,6 @@ PxResult::Result<void> OnCommand(PxIPC::EventContext<char> *ctx) {
 void cad(int sig) {
 	cadPress = true;
 }
-CollectorJob cj;
 
 static void onchild(int _) {
 	cj.tick();
@@ -119,11 +118,17 @@ int main(int argc, const char *argv[]) {
 		return 1;
 	}
 
+	// TODO: if mountpoint exists, don't remount,
+	// or if mountpoint exists, remove it
+	PxMount::Mount("devtmpfs", "/dev", "devtmpfs").assert("main / mount dev");
 	PxMount::Mount("proc", "/proc", "proc").assert("main / mount proc");
 	PxMount::Mount("tmpfs", "/run", "tmpfs").assert("main / mount run");
 	PxMount::Mount("sysfs", "/sys", "sysfs").assert("main / mount sysfs");
 	PxMount::Mount("tmpfs", "/tmp", "tmpfs").assert("main / mount tmpfs");
 	PxMount::Mount("cgroup2", "/sys/fs/cgroup", "cgroup2").assert("main / mount cgroup");
+
+	// efivars (don't check error)
+	PxMount::Mount("efivarfs", "/sys/firmware/efi/efivars", "efivarfs");
 
 	mkdir("/dev/pts", 0600);
 	mkdir("/dev/shm", 0600);

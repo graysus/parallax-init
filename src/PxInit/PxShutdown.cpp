@@ -58,13 +58,12 @@ static inline void remount_as_readonly(std::vector<PxMount::FsEntry> &filesystem
 
         for (char ntry = 4; ntry > 0; ntry--) {
             auto status = PxMount::Mount("", i.target, "", "remount,ro");
-            if (status.eno == 0) break;
             if (status.eno == EINVAL) {
                 // Certain pseudo-filesystems (e.g. overlayfs) will give 
                 // this error when trying to remount a readonly file system
-                // Unmount instead.
-                status = PxMount::Unmount(i.target);
+                break;
             }
+            if (status.eno == 0) break;
 
             PxLog::log.warn("warn: cannot remount "+i.target+": "+status.funcName+": "+strerror(status.eno));
             if (ntry == 1) {
